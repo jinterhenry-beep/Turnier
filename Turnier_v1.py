@@ -33,11 +33,20 @@ data = st.session_state.data
 st.title("🏐 Einfaches Volleyball Turnier (5 Teams)")
 
 # ---------------- TEAMS ----------------
-st.sidebar.header("Teams")
-for i in range(5):
-    data["teams"][i] = st.sidebar.text_input(f"Team {i+1}", data["teams"][i])
+st.sidebar.header("Teams & Spieler")
 
-teams = data["teams"]
+teams = {}
+
+for i in range(5):
+    team_name = st.sidebar.text_input(f"Team {i+1}", value=f"Team {i+1}")
+    players = st.sidebar.text_input(
+        f"Spieler {team_name} (Komma getrennt)",
+        value=""
+    )
+
+    teams[team_name] = [p.strip() for p in players.split(",") if p.strip()]
+
+st.session_state.teams = teams
 
 # ---------------- MATCHES (Jeder gegen jeden) ----------------
 if not data["matches"]:
@@ -71,37 +80,19 @@ for i,m in enumerate(data["matches"]):
 save(data)
 
 # ---------------- TABLE ----------------
-st.header("📊 Tabelle")
+st.header("📅 Spielplan")
 
-table = {t: {"P":0,"Diff":0} for t in teams}
+team_list = list(st.session_state.teams.keys())
 
-for m in data["matches"]:
-    a = teams[m["a"]]
-    b = teams[m["b"]]
+pairs = [
+    (0,1),(0,2),(0,3),(0,4),
+    (1,2),(1,3),(1,4),
+    (2,3),(2,4),
+    (3,4)
+]
 
-    if m["sa"] > m["sb"]:
-        table[a]["P"] += 3
-    elif m["sb"] > m["sa"]:
-        table[b]["P"] += 3
-    else:
-        table[a]["P"] += 1
-        table[b]["P"] += 1
-
-    table[a]["Diff"] += m["sa"] - m["sb"]
-    table[b]["Diff"] += m["sb"] - m["sa"]
-
-    table[teams[m["a"]]]["Diff"] += m["sa"] - m["sb"]
-    table[teams[m["b"]]]["Diff"] += m["sb"] - m["sa"]
-
-df = pd.DataFrame([
-    {"Team":k,"Punkte":v["P"],"Diff":v["Diff"]}
-    for k,v in table.items()
-]).sort_values(["Punkte","Diff"], ascending=False)
-
-st.dataframe(df, use_container_width=True)
-
-ranked = df["Team"].tolist()
-
+for i, (a, b) in enumerate(pairs):
+    st.write(f"🏐 {team_list[a]} vs {team_list[b]}")
 # ---------------- PLAYOFFS AUTOMATISCH ----------------
 st.header("🏆 Halbfinale & Finale (automatisch)")
 
