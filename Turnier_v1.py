@@ -10,50 +10,58 @@ FILE = "turnier.json"
 # ---------------- SAVE / LOAD ----------------
 def load():
     if os.path.exists(FILE):
-        with open(FILE,"r") as f:
+        with open(FILE, "r") as f:
             return json.load(f)
     return None
 
 def save(data):
-    with open(FILE,"w") as f:
-        json.dump(data,f)
+    with open(FILE, "w") as f:
+        json.dump(data, f)
 
 # ---------------- INIT ----------------
 if "data" not in st.session_state:
     data = load()
     if not data:
         data = {
-            "teams": ["Team A","Team B","Team C","Team D","Team E"],
-            "matches": [],
+            "teams": [
+                {"name": "Team A", "players": ["Spieler1","Spieler2","Spieler3","Spieler4","Spieler5"]},
+                {"name": "Team B", "players": ["Spieler1","Spieler2","Spieler3","Spieler4","Spieler5"]},
+                {"name": "Team C", "players": ["Spieler1","Spieler2","Spieler3","Spieler4","Spieler5"]},
+                {"name": "Team D", "players": ["Spieler1","Spieler2","Spieler3","Spieler4","Spieler5"]},
+                {"name": "Team E", "players": ["Spieler1","Spieler2","Spieler3","Spieler4","Spieler5"]},
+            ],
+            "matches": []
         }
     st.session_state.data = data
 
 data = st.session_state.data
 
-st.title("🏐 Einfaches Volleyball Turnier (5 Teams)")
+st.title("🏐 Volleyball Turnier (Pro Version einfach)")
 
-# ---------------- TEAMS ----------------
+# ---------------- TEAMS + SPIELER ----------------
 st.sidebar.header("Teams & Spieler")
 
-teams = {}
-
 for i in range(5):
-    team_name = st.sidebar.text_input(f"Team {i+1}", value=f"Team {i+1}")
-    players = st.sidebar.text_input(
-        f"Spieler {team_name} (Komma getrennt)",
-        value=""
+    name = st.sidebar.text_input(f"Team {i+1}", data["teams"][i]["name"])
+
+    players = st.sidebar.text_area(
+        f"Spieler {i+1} (Komma getrennt)",
+        value=",".join(data["teams"][i]["players"])
     )
 
-    teams[team_name] = [p.strip() for p in players.split(",") if p.strip()]
+    data["teams"][i] = {
+        "name": name,
+        "players": [p.strip() for p in players.split(",")]
+    }
 
-st.session_state.teams = teams
-
-# ---------------- MATCHES (Jeder gegen jeden) ----------------
+# ---------------- MATCH PLAN ----------------
 if not data["matches"]:
-    pairs = [(0,1),(0,2),(0,3),(0,4),
-             (1,2),(1,3),(1,4),
-             (2,3),(2,4),
-             (3,4)]
+    pairs = [
+        (0,1),(0,2),(0,3),(0,4),
+        (1,2),(1,3),(1,4),
+        (2,3),(2,4),
+        (3,4)
+    ]
 
     for a,b in pairs:
         data["matches"].append({
@@ -65,36 +73,76 @@ if not data["matches"]:
 
 save(data)
 
+teams = data["teams"]
+
 # ---------------- LIVE SCORING ----------------
-st.header("📱 Schiri Eingabe (Live)")
+st.header("📱 Schiri Eingabe")
 
 cols = st.columns(2)
 
-for i,m in enumerate(data["matches"]):
-    with cols[i % 2]:
-        st.subheader(f"{teams[m['a']]} vs {teams[m['b']]}")
+for i, m in enumerate(data["matches"]):
 
-        m["sa"] = st.number_input(f"{teams[m['a']]} Punkte", key=f"a{i}", value=m["sa"])
-        m["sb"] = st.number_input(f"{teams[m['b']]} Punkte", key=f"b{i}", value=m["sb"])
+    teamA = teams[m["a"]]
+    teamB = teams[m["b"]]
+
+    with cols[i % 2]:
+        st.subheader(f"{teamA['name']} vs {teamB['name']}")
+
+        col1, col2 = st.columns(2)
+
+        with col1:
+            st.markdown("🔵 Team A")
+            st.write(", ".join(teamA["players"]))
+
+        with col2:
+            st.markdown("🔴 Team B")
+            st.write(", ".join(teamB["players"]))
+
+        m["sa"] = st.number_input(
+            f"Punkte {teamA['name']}",
+            key=f"a{i}",
+            value=m["sa"]
+        )
+
+        m["sb"] = st.number_input(
+            f"Punkte {teamB['name']}",
+            key=f"b{i}",
+            value=m["sb"]
+        )
 
 save(data)
 
 # ---------------- TABLE ----------------
-st.header("📅 Spielplan")
+st.header("📊 Tabelle")
 
-team_list = list(st.session_state.teams.keys())
+table = {t["name"]: {"P":0,"Diff":0} for t in teams}
 
-pairs = [
-    (0,1),(0,2),(0,3),(0,4),
-    (1,2),(1,3),(1,4),
-    (2,3),(2,4),
-    (3,4)
-]
+for m in data["matches"]:
+    a = teams[m["a"]]["name"]
+    b = teams[m["b"]]["name"]
 
-for i, (a, b) in enumerate(pairs):
-    st.write(f"🏐 {team_list[a]} vs {team_list[b]}")
-# ---------------- PLAYOFFS AUTOMATISCH ----------------
-st.header("🏆 Halbfinale & Finale (automatisch)")
+    if m["sa"] > m["sb"]:
+        table[a]["P"] += 3
+    elif m["sb"] > m["sa"]:
+        table[b]["P"] += 3
+    else:
+        table[a]["P"] += 1
+        table[b]["P"] += 1
+
+    table[a]["Diff"] += m["sa"] - m["sb"]
+    table[b]["Diff"] += m["sb"] - m["sa"]
+
+df = pd.DataFrame([
+    {"Team":k,"Punkte":v["P"],"Diff":v["Diff"]}
+    for k,v in table.items()
+]).sort_values(["Punkte","Diff"], ascending=False)
+
+st.dataframe(df, use_container_width=True)
+
+ranked = df["Team"].tolist()
+
+# ---------------- PLAYOFFS ----------------
+st.header("🏆 Halbfinale & Finale")
 
 if len(ranked) >= 4:
 
