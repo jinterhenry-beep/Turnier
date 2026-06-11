@@ -76,10 +76,19 @@ st.header("📊 Tabelle")
 table = {t: {"P":0,"Diff":0} for t in teams}
 
 for m in data["matches"]:
+    a = teams[m["a"]]
+    b = teams[m["b"]]
+
     if m["sa"] > m["sb"]:
-        table[teams[m["a"]]]["P"] += 2
+        table[a]["P"] += 3
     elif m["sb"] > m["sa"]:
-        table[teams[m["b"]]]["P"] += 2
+        table[b]["P"] += 3
+    else:
+        table[a]["P"] += 1
+        table[b]["P"] += 1
+
+    table[a]["Diff"] += m["sa"] - m["sb"]
+    table[b]["Diff"] += m["sb"] - m["sa"]
 
     table[teams[m["a"]]]["Diff"] += m["sa"] - m["sb"]
     table[teams[m["b"]]]["Diff"] += m["sb"] - m["sa"]
