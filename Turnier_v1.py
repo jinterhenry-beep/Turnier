@@ -2,6 +2,8 @@ import streamlit as st
 import pandas as pd
 import json
 import os
+import time
+from streamlit_autorefresh import st_autorefresh
 
 st.set_page_config(page_title="Turnier", layout="wide")
 
@@ -97,6 +99,17 @@ if "data" not in st.session_state:
 
 data = st.session_state.data
 
+# ---------------- TIMER INIT ----------------
+if "timers" not in st.session_state:
+    st.session_state.timers = {
+        i: {
+            "running": False,
+            "start_time": None,
+            "duration": 15 * 60
+        }
+        for i in range(5)
+    }
+
 # ---------------- PASSWORD ----------------
 st.sidebar.header("🔐 Zugriff")
 
@@ -146,12 +159,45 @@ st.divider()
 
 teams = data["teams"]
 
+# ---------------- TIMER ----------------
+def render_timer(round_index):
+
+    timer = st.session_state.timers[round_index]
+
+    if timer["running"]:
+        st_autorefresh(interval=1000, key=f"refresh_{round_index}")
+
+        elapsed = time.time() - timer["start_time"]
+        remaining = timer["duration"] - elapsed
+
+        if remaining <= 0:
+            timer["running"] = False
+            remaining = 0
+
+        mins = int(remaining // 60)
+        secs = int(remaining % 60)
+
+        st.markdown(f"## ⏱️ {mins:02d}:{secs:02d}")
+
+    else:
+        st.markdown("## ⏱️ 15:00 bereit")
+
+    if st.button(f"▶️ Timer Start Runde {round_index + 1}", key=f"start_{round_index}"):
+        if auth:
+            timer["running"] = True
+            timer["start_time"] = time.time()
+        else:
+            st.error("Passwort erforderlich!")
+
 # ---------------- SCHIRI LIGA ----------------
-st.header("📱 Schiri Eingabe (Liga)")
+st.header("Spielplan")
 
 for r_index, round_matches in enumerate(data["rounds"]):
 
     st.subheader(f"🏁 Runde {r_index + 1}")
+
+    # TIMER PRO RUNDE
+    render_timer(r_index)
 
     cols = st.columns(3)
 
@@ -222,38 +268,20 @@ if data["ko"]["active"]:
             match["b"] = st.text_input("Team B", match["b"], key=f"{key}_b")
 
         st.markdown(
-            f"""
-            <div style="text-align:center;font-size:22px;font-weight:800;margin:8px 0;">
-                {match["a"]} <span style="color:gray;">vs</span> {match["b"]}
-            </div>
-            """,
+            f"<div style='text-align:center;font-size:22px;font-weight:800'>{match['a']} vs {match['b']}</div>",
             unsafe_allow_html=True
         )
 
         col1, col2 = st.columns(2)
 
         with col1:
-            match["sa"] = st.number_input(
-                "Score A",
-                key=f"{key}_sa",
-                value=match["sa"],
-                min_value=0
-            )
+            match["sa"] = st.number_input("Score A", key=f"{key}_sa", value=match["sa"], min_value=0)
 
         with col2:
-            match["sb"] = st.number_input(
-                "Score B",
-                key=f"{key}_sb",
-                value=match["sb"],
-                min_value=0
-            )
+            match["sb"] = st.number_input("Score B", key=f"{key}_sb", value=match["sb"], min_value=0)
 
         st.markdown(
-            f"""
-            <div style="text-align:center;font-size:32px;font-weight:900;margin-top:5px;">
-                {match["sa"]} : {match["sb"]}
-            </div>
-            """,
+            f"<div style='text-align:center;font-size:30px;font-weight:900'>{match['sa']} : {match['sb']}</div>",
             unsafe_allow_html=True
         )
 
@@ -262,28 +290,23 @@ if data["ko"]["active"]:
     col1, col2 = st.columns(2)
 
     with col1:
-        render_match("Halbfinale 1", ko["hf1"], "hf1")
+        render_match("HF1", ko["hf1"], "hf1")
 
     with col2:
-        render_match("Halbfinale 2", ko["hf2"], "hf2")
+        render_match("HF2", ko["hf2"], "hf2")
 
     st.subheader("🏅 Finale")
 
-    st.markdown(
-        "<div style='text-align:center;font-size:26px;font-weight:900;'>Finale</div>",
-        unsafe_allow_html=True
-    )
-
-    render_match("", ko["final"], "final")
+    render_match("Finale", ko["final"], "final")
 
     if st.button("💾 KO speichern"):
-        if not auth:
-            st.error("❌ Passwort erforderlich!")
-        else:
+        if auth:
             save(data)
-            st.success("K.O. Phase gespeichert!")
+            st.success("K.O. gespeichert!")
+        else:
+            st.error("Passwort erforderlich!")
 
-# ---------------- SAVE ----------------
+# ---------------- AUTO SAVE ----------------
 if auth:
     save(data)
 
@@ -300,10 +323,8 @@ for m in data["matches"]:
     if not m.get("done"):
         continue
 
-    a = m["a"]
-    b = m["b"]
-    sa = m["sa"]
-    sb = m["sb"]
+    a, b = m["a"], m["b"]
+    sa, sb = m["sa"], m["sb"]
 
     table[a]["GF"] += sa
     table[a]["GA"] += sb
@@ -331,11 +352,7 @@ df = pd.DataFrame([
     for i in range(len(teams))
 ])
 
-df = df.sort_values(
-    ["Punkte", "Diff", "Tore"],
-    ascending=[False, False, False]
-).reset_index(drop=True)
-
+df = df.sort_values(["Punkte", "Diff", "Tore"], ascending=False).reset_index(drop=True)
 df.insert(0, "Rang", range(1, len(df) + 1))
 
 st.sidebar.dataframe(df, use_container_width=True)
