@@ -5,10 +5,8 @@ import os
 
 st.set_page_config(page_title="Turnier", layout="wide")
 
-# ---------------- ROLE ----------------
-role = st.sidebar.selectbox("Rolle", ["Schiri", "Admin"])
-
 FILE = "turnier.json"
+PASSWORD = "KALLA coden"
 
 # ---------------- SAVE / LOAD ----------------
 def load():
@@ -99,6 +97,17 @@ if "data" not in st.session_state:
 
 data = st.session_state.data
 
+# ---------------- PASSWORD ----------------
+st.sidebar.header("🔐 Zugriff")
+
+password_input = st.sidebar.text_input("Passwort", type="password")
+auth = password_input == PASSWORD
+
+if auth:
+    st.sidebar.success("✔ Zugriff erlaubt")
+else:
+    st.sidebar.warning("❌ Kein Zugriff zum Speichern")
+
 st.title("🏐 Volleyball Turnier")
 
 # ---------------- TEAMS ----------------
@@ -146,36 +155,33 @@ for r_index, round_matches in enumerate(data["rounds"]):
 
     cols = st.columns(3)
 
-    # SAVE BUTTON (nur Admin aktiv)
-    st.button(
-        f"💾 Runde {r_index + 1} speichern",
-        disabled=(role != "Admin")
-    )
+    if st.button(f"💾 Runde {r_index + 1} speichern"):
 
-    if role == "Admin" and st.button(f"Runde {r_index + 1} speichern Aktion", key=f"save_{r_index}"):
+        if not auth:
+            st.error("❌ Passwort erforderlich!")
+        else:
+            for m in round_matches:
 
-        for m in round_matches:
+                if m["done"]:
+                    continue
 
-            if m["done"]:
-                continue
+                sa = m["sa"]
+                sb = m["sb"]
 
-            sa = m["sa"]
-            sb = m["sb"]
+                if sa > sb:
+                    m["winner"] = m["a"]
+                elif sb > sa:
+                    m["winner"] = m["b"]
+                else:
+                    m["winner"] = None
 
-            if sa > sb:
-                m["winner"] = m["a"]
-            elif sb > sa:
-                m["winner"] = m["b"]
-            else:
-                m["winner"] = None
+                m["done"] = True
 
-            m["done"] = True
+            if r_index == 4:
+                data["ko"]["active"] = True
 
-        if r_index == 4:
-            data["ko"]["active"] = True
-
-        save(data)
-        st.success(f"Runde {r_index + 1} gespeichert!")
+            save(data)
+            st.success(f"Runde {r_index + 1} gespeichert!")
 
     for j, m in enumerate(round_matches):
 
@@ -217,12 +223,7 @@ if data["ko"]["active"]:
 
         st.markdown(
             f"""
-            <div style="
-                text-align:center;
-                font-size:22px;
-                font-weight:800;
-                margin:8px 0;
-            ">
+            <div style="text-align:center;font-size:22px;font-weight:800;margin:8px 0;">
                 {match["a"]} <span style="color:gray;">vs</span> {match["b"]}
             </div>
             """,
@@ -249,12 +250,7 @@ if data["ko"]["active"]:
 
         st.markdown(
             f"""
-            <div style="
-                text-align:center;
-                font-size:32px;
-                font-weight:900;
-                margin-top:5px;
-            ">
+            <div style="text-align:center;font-size:32px;font-weight:900;margin-top:5px;">
                 {match["sa"]} : {match["sb"]}
             </div>
             """,
@@ -274,19 +270,22 @@ if data["ko"]["active"]:
     st.subheader("🏅 Finale")
 
     st.markdown(
-        "<div style='text-align:center; font-size:26px; font-weight:900;'>Finale</div>",
+        "<div style='text-align:center;font-size:26px;font-weight:900;'>Finale</div>",
         unsafe_allow_html=True
     )
 
     render_match("", ko["final"], "final")
 
-    # KO SAVE (nur Admin)
-    if role == "Admin" and st.button("💾 KO speichern"):
-        save(data)
-        st.success("K.O. Phase gespeichert!")
+    if st.button("💾 KO speichern"):
+        if not auth:
+            st.error("❌ Passwort erforderlich!")
+        else:
+            save(data)
+            st.success("K.O. Phase gespeichert!")
 
 # ---------------- SAVE ----------------
-save(data)
+if auth:
+    save(data)
 
 # ---------------- TABELLE ----------------
 st.sidebar.header("🏆 Tabelle")
