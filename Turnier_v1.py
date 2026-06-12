@@ -7,6 +7,11 @@ st.set_page_config(page_title="Turnier", layout="wide")
 
 FILE = "turnier.json"
 
+# ---------------- ROLE ----------------
+params = st.query_params
+role = params.get("role", "admin")
+is_ref = role == "ref"
+
 # ---------------- SAVE / LOAD ----------------
 def load():
     if os.path.exists(FILE):
@@ -115,14 +120,16 @@ for i, team in enumerate(data["teams"]):
             val = st.text_input(
                 f"Spieler {j+1}",
                 p,
-                key=f"p_{i}_{j}"
+                key=f"p_{i}_{j}",
+                disabled=is_ref
             )
             if val:
                 updated.append(val)
 
         new_p = st.text_input(
             "➕ Spieler hinzufügen",
-            key=f"new_{i}"
+            key=f"new_{i}",
+            disabled=is_ref
         )
 
         if new_p:
@@ -143,31 +150,31 @@ for r_index, round_matches in enumerate(data["rounds"]):
 
     cols = st.columns(3)
 
-    if st.button(f"💾 Runde {r_index + 1} speichern"):
+    if not is_ref:
+        if st.button(f"💾 Runde {r_index + 1} speichern"):
 
-        for m in round_matches:
+            for m in round_matches:
 
-            if m["done"]:
-                continue
+                if m["done"]:
+                    continue
 
-            sa = m["sa"]
-            sb = m["sb"]
+                sa = m["sa"]
+                sb = m["sb"]
 
-            if sa > sb:
-                m["winner"] = m["a"]
-            elif sb > sa:
-                m["winner"] = m["b"]
-            else:
-                m["winner"] = None
+                if sa > sb:
+                    m["winner"] = m["a"]
+                elif sb > sa:
+                    m["winner"] = m["b"]
+                else:
+                    m["winner"] = None
 
-            m["done"] = True
+                m["done"] = True
 
-        # KO aktivieren nach Runde 5
-        if r_index == 4:
-            data["ko"]["active"] = True
+            if r_index == 4:
+                data["ko"]["active"] = True
 
-        save(data)
-        st.success(f"Runde {r_index + 1} gespeichert!")
+            save(data)
+            st.success(f"Runde {r_index + 1} gespeichert!")
 
     for j, m in enumerate(round_matches):
 
@@ -175,17 +182,30 @@ for r_index, round_matches in enumerate(data["rounds"]):
 
             st.write(f"**Team {m['a']+1} vs Team {m['b']+1}**")
 
-            m["sa"] = st.number_input(
-                f"Team {m['a']+1}",
-                key=f"a_{r_index}_{j}",
-                value=m["sa"]
-            )
+            colA, colB = st.columns(2)
 
-            m["sb"] = st.number_input(
-                f"Team {m['b']+1}",
-                key=f"b_{r_index}_{j}",
-                value=m["sb"]
-            )
+            # ➕ / ➖ SCORE CONTROL (Schiri-friendly)
+            with colA:
+                if not is_ref:
+                    if st.button("+", key=f"plus_a_{r_index}_{j}"):
+                        m["sa"] += 1
+
+                st.markdown(f"### {m['sa']}")
+
+                if not is_ref:
+                    if st.button("-", key=f"minus_a_{r_index}_{j}"):
+                        m["sa"] -= 1
+
+            with colB:
+                if not is_ref:
+                    if st.button("+", key=f"plus_b_{r_index}_{j}"):
+                        m["sb"] += 1
+
+                st.markdown(f"### {m['sb']}")
+
+                if not is_ref:
+                    if st.button("-", key=f"minus_b_{r_index}_{j}"):
+                        m["sb"] -= 1
 
 # ---------------- KO PHASE ----------------
 if data["ko"]["active"]:
@@ -199,65 +219,65 @@ if data["ko"]["active"]:
 
         st.markdown(f"### {title}")
 
-        # Teamnamen (nur einmal sichtbar)
         colA, colB = st.columns(2)
 
         with colA:
-            match["a"] = st.text_input("Team A", match["a"], key=f"{key}_a")
+            match["a"] = st.text_input(
+                "Team A",
+                match["a"],
+                key=f"{key}_a",
+                disabled=is_ref
+            )
 
         with colB:
-            match["b"] = st.text_input("Team B", match["b"], key=f"{key}_b")
+            match["b"] = st.text_input(
+                "Team B",
+                match["b"],
+                key=f"{key}_b",
+                disabled=is_ref
+            )
 
-        # VS Anzeige kompakt + sauber zentriert
         st.markdown(
             f"""
-            <div style="
-                text-align:center;
-                font-size:22px;
-                font-weight:800;
-                margin:8px 0;
-            ">
+            <div style="text-align:center;font-size:22px;font-weight:800;">
                 {match["a"]} <span style="color:gray;">vs</span> {match["b"]}
             </div>
             """,
             unsafe_allow_html=True
         )
 
-        # Scores nebeneinander
         col1, col2 = st.columns(2)
 
         with col1:
-            match["sa"] = st.number_input(
-                "Score A",
-                key=f"{key}_sa",
-                value=match["sa"],
-                min_value=0
-            )
+            colA1, colA2 = st.columns(2)
+
+            with colA1:
+                if not is_ref:
+                    if st.button("+", key=f"{key}_sa_plus"):
+                        match["sa"] += 1
+
+                st.markdown(f"## {match['sa']}")
+
+            with colA2:
+                if not is_ref:
+                    if st.button("-", key=f"{key}_sa_minus"):
+                        match["sa"] -= 1
 
         with col2:
-            match["sb"] = st.number_input(
-                "Score B",
-                key=f"{key}_sb",
-                value=match["sb"],
-                min_value=0
-            )
+            colB1, colB2 = st.columns(2)
 
-        # Große Score-Anzeige (fett & klar)
-        st.markdown(
-            f"""
-            <div style="
-                text-align:center;
-                font-size:32px;
-                font-weight:900;
-                margin-top:5px;
-            ">
-                {match["sa"]} : {match["sb"]}
-            </div>
-            """,
-            unsafe_allow_html=True
-        )
+            with colB1:
+                if not is_ref:
+                    if st.button("+", key=f"{key}_sb_plus"):
+                        match["sb"] += 1
 
-    # ---------------- Halbfinale ----------------
+                st.markdown(f"## {match['sb']}")
+
+            with colB2:
+                if not is_ref:
+                    if st.button("-", key=f"{key}_sb_minus"):
+                        match["sb"] -= 1
+
     st.subheader("🏆 Halbfinale")
 
     col1, col2 = st.columns(2)
@@ -268,24 +288,22 @@ if data["ko"]["active"]:
     with col2:
         render_match("Halbfinale 2", ko["hf2"], "hf2")
 
-    # ---------------- Finale ----------------
     st.subheader("🏅 Finale")
 
-    st.markdown(
-        "<div style='text-align:center; font-size:26px; font-weight:900;'>Finale</div>",
-        unsafe_allow_html=True
-    )
+    st.markdown("<div style='text-align:center;font-size:26px;font-weight:900;'>Finale</div>", unsafe_allow_html=True)
 
     render_match("", ko["final"], "final")
 
-    if st.button("💾 KO speichern"):
-        save(data)
-        st.success("K.O. Phase gespeichert!")
+    if not is_ref:
+        if st.button("💾 KO speichern"):
+            save(data)
+            st.success("K.O. Phase gespeichert!")
 
-# ---------------- SAVE ----------------
-save(data)
+# ---------------- AUTO SAVE ----------------
+if not is_ref:
+    save(data)
 
-# ---------------- TABELLE ----------------
+# ---------------- TABLE ----------------
 st.sidebar.header("🏆 Tabelle")
 
 table = {
