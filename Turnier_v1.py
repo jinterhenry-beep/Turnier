@@ -138,7 +138,7 @@ for i, team in enumerate(data["teams"]):
             if val:
                 updated.append(val)
 
-        new_p = st.text_input("➕ Spieler hinzufügen", key=f"new_{i}")
+        new_p = st.text_input("", key=f"new_{i}")
 
         if st.button(f"Hinzufügen Team {i+1}", key=f"btn_{i}"):
 
