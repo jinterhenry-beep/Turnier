@@ -2,6 +2,7 @@ import streamlit as st
 import pandas as pd
 import json
 import os
+from streamlit_autorefresh import st_autorefresh
 
 st.set_page_config(page_title="Turnier", layout="wide")
 st.autorefresh(interval=5000, key="refresh")
