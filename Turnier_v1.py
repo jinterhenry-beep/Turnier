@@ -6,7 +6,8 @@ import os
 st.set_page_config(page_title="Turnier", layout="wide")
 
 FILE = "turnier.json"
-PASSWORD = "KALLA coden"
+PASSWORD_ADMIN = "KALLA coden"
+PASSWORD_SCHIRI = "SCHIRI"
 
 # ---------------- SAVE / LOAD ----------------
 def load():
@@ -97,20 +98,25 @@ if "data" not in st.session_state:
 
 data = st.session_state.data
 
-# ---------------- PASSWORD ----------------
+# ---------------- LOGIN / ROLE ----------------
 st.sidebar.header("🔐 Zugriff")
 
 password_input = st.sidebar.text_input("Passwort", type="password")
-auth = password_input == PASSWORD
 
-if auth:
-    st.sidebar.success("✔ Zugriff erlaubt")
+role = None
+
+if password_input == PASSWORD_ADMIN:
+    role = "admin"
+    st.sidebar.success("✔ Admin Zugriff")
+elif password_input == PASSWORD_SCHIRI:
+    role = "schiri"
+    st.sidebar.success("✔ Schiri Zugriff")
 else:
-    st.sidebar.warning("❌ Kein Zugriff zum Speichern")
+    st.sidebar.warning("❌ Kein Zugriff")
 
 st.title("🏐 Volleyball Turnier")
 
-# ---------------- TEAMS (FIXED) ----------------
+# ---------------- TEAMS ----------------
 st.header("👥 Teams")
 
 cols = st.columns(len(data["teams"]))
@@ -132,11 +138,7 @@ for i, team in enumerate(data["teams"]):
             if val:
                 updated.append(val)
 
-        # FIX: kein session_state reset mehr → nur append + rerun
-        new_p = st.text_input(
-            "➕ Spieler hinzufügen",
-            key=f"new_{i}"
-        )
+        new_p = st.text_input("➕ Spieler hinzufügen", key=f"new_{i}")
 
         if st.button(f"Hinzufügen Team {i+1}", key=f"btn_{i}"):
 
@@ -151,7 +153,7 @@ st.divider()
 
 teams = data["teams"]
 
-# ---------------- SCHIRI LIGA ----------------
+# ---------------- SPIELPLAN ----------------
 st.header("Spielplan")
 
 for r_index, round_matches in enumerate(data["rounds"]):
@@ -162,11 +164,17 @@ for r_index, round_matches in enumerate(data["rounds"]):
 
     if st.button(f"💾 Runde {r_index + 1} speichern"):
 
-        if not auth:
+        if role is None:
             st.error("❌ Passwort erforderlich!")
         else:
+
             for m in round_matches:
 
+                # SCHIRI: nur speichern (keine Auswertung!)
+                if role == "schiri":
+                    continue
+
+                # ADMIN: Auswertung nur wenn noch nicht done
                 if m["done"]:
                     continue
 
@@ -182,7 +190,8 @@ for r_index, round_matches in enumerate(data["rounds"]):
 
                 m["done"] = True
 
-            if r_index == 4:
+            # KO nur durch ADMIN aktivieren
+            if role == "admin" and r_index == 4:
                 data["ko"]["active"] = True
 
             save(data)
@@ -259,14 +268,14 @@ if data["ko"]["active"]:
     render_match("Finale", ko["final"], "final")
 
     if st.button("💾 KO speichern"):
-        if auth:
+        if role == "admin":
             save(data)
             st.success("K.O. gespeichert!")
         else:
-            st.error("Passwort erforderlich!")
+            st.error("Nur Admin darf speichern!")
 
 # ---------------- AUTO SAVE ----------------
-if auth:
+if role == "admin":
     save(data)
 
 # ---------------- TABELLE ----------------
