@@ -127,16 +127,16 @@ for i, team in enumerate(data["teams"]):
 
         st.subheader(f"Team {i+1}")
 
-        # FIX: stabile Speicherung der Spieler
-        updated = list(team)
+        updated = []
 
-        for j in range(len(updated)):
+        for j, p in enumerate(team):
             val = st.text_input(
                 f"Spieler {j+1}",
-                updated[j],
+                p,
                 key=f"p_{i}_{j}"
             )
-            updated[j] = val
+            if val:
+                updated.append(val)
 
         new_p = st.text_input("➕ Spieler hinzufügen", key=f"new_{i}")
 
@@ -170,9 +170,11 @@ for r_index, round_matches in enumerate(data["rounds"]):
 
             for m in round_matches:
 
+                # SCHIRI: nur speichern (keine Auswertung!)
                 if role == "schiri":
                     continue
 
+                # ADMIN: Auswertung nur wenn noch nicht done
                 if m["done"]:
                     continue
 
@@ -188,6 +190,7 @@ for r_index, round_matches in enumerate(data["rounds"]):
 
                 m["done"] = True
 
+            # KO nur durch ADMIN aktivieren
             if role == "admin" and r_index == 4:
                 data["ko"]["active"] = True
 
