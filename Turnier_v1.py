@@ -4,6 +4,7 @@ import json
 import os
 
 st.set_page_config(page_title="Turnier", layout="wide")
+st.autorefresh(interval=5000, key="refresh")
 
 FILE = "turnier.json"
 
