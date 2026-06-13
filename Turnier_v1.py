@@ -2,8 +2,6 @@ import streamlit as st
 import pandas as pd
 import json
 import os
-import time
-from streamlit_autorefresh import st_autorefresh
 
 st.set_page_config(page_title="Turnier", layout="wide")
 
@@ -99,17 +97,6 @@ if "data" not in st.session_state:
 
 data = st.session_state.data
 
-# ---------------- TIMER INIT ----------------
-if "timers" not in st.session_state:
-    st.session_state.timers = {
-        i: {
-            "running": False,
-            "start_time": None,
-            "duration": 15 * 60
-        }
-        for i in range(5)
-    }
-
 # ---------------- PASSWORD ----------------
 st.sidebar.header("🔐 Zugriff")
 
@@ -123,7 +110,7 @@ else:
 
 st.title("🏐 Volleyball Turnier")
 
-# ---------------- TEAMS ----------------
+# ---------------- TEAMS (FIXED) ----------------
 st.header("👥 Teams")
 
 cols = st.columns(len(data["teams"]))
@@ -145,13 +132,18 @@ for i, team in enumerate(data["teams"]):
             if val:
                 updated.append(val)
 
+        # FIX: kein session_state reset mehr → nur append + rerun
         new_p = st.text_input(
             "➕ Spieler hinzufügen",
             key=f"new_{i}"
         )
 
-        if new_p:
-            updated.append(new_p)
+        if st.button(f"Hinzufügen Team {i+1}", key=f"btn_{i}"):
+
+            if new_p.strip():
+                updated.append(new_p.strip())
+                data["teams"][i] = updated
+                st.rerun()
 
         data["teams"][i] = updated
 
@@ -159,45 +151,12 @@ st.divider()
 
 teams = data["teams"]
 
-# ---------------- TIMER ----------------
-def render_timer(round_index):
-
-    timer = st.session_state.timers[round_index]
-
-    if timer["running"]:
-        st_autorefresh(interval=1000, key=f"refresh_{round_index}")
-
-        elapsed = time.time() - timer["start_time"]
-        remaining = timer["duration"] - elapsed
-
-        if remaining <= 0:
-            timer["running"] = False
-            remaining = 0
-
-        mins = int(remaining // 60)
-        secs = int(remaining % 60)
-
-        st.markdown(f"## ⏱️ {mins:02d}:{secs:02d}")
-
-    else:
-        st.markdown("## ⏱️ 15:00 bereit")
-
-    if st.button(f"▶️ Timer Start Runde {round_index + 1}", key=f"start_{round_index}"):
-        if auth:
-            timer["running"] = True
-            timer["start_time"] = time.time()
-        else:
-            st.error("Passwort erforderlich!")
-
 # ---------------- SCHIRI LIGA ----------------
 st.header("Spielplan")
 
 for r_index, round_matches in enumerate(data["rounds"]):
 
     st.subheader(f"🏁 Runde {r_index + 1}")
-
-    # TIMER PRO RUNDE
-    render_timer(r_index)
 
     cols = st.columns(3)
 
